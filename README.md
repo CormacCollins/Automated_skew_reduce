@@ -24,3 +24,35 @@ print(np.mean(skew2))
 
 ```
 
+Note the runtime error as I didn't do anything about NaN values,
+Output:
+```
+RuntimeWarning: invalid value encountered in less_equal
+  if any(x <= 0):
+Log transformed: LotFrontage
+Log transformed: LotArea
+Sqrt transformed: MasVnrArea
+Sqrt transformed: BsmtFinSF1
+Sqrt transformed: BsmtFinSF2
+Sqrt transformed: TotalBsmtSF
+Boxcox transformed: 1stFlrSF
+Sqrt transformed: LowQualFinSF
+Log transformed: GrLivArea
+Sqrt transformed: BsmtHalfBath
+Sqrt transformed: KitchenAbvGr
+Sqrt transformed: WoodDeckSF
+Sqrt transformed: OpenPorchSF
+Sqrt transformed: EnclosedPorch
+Sqrt transformed: 3SsnPorch
+Sqrt transformed: ScreenPorch
+Sqrt transformed: PoolArea
+Sqrt transformed: MiscVal
+Boxcox transformed: SalePrice
+Skew minimization complete
+Diff in skew post minimization:
+2.966802901764881
+2.5287513660787697
+```
+
+
+
