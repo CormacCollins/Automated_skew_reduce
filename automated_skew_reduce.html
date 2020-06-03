@@ -13084,17 +13084,18 @@ The function works by finding the optimal minimizer of skew for each column, and
 <p><strong>Note:</strong></p>
 <ul>
     <li>A column can not be transformed by the sqrt or boxcox function if any 0 values in that column</li>
-    <li>A column can not be transformed by sqrt or boxcox if any negative valus in that column (log accepts negative values)</li>
-</ul>
+    <li>A column can not be transformed by log, sqrt or boxcox if any negative valus in that column</li>
+</ul><p>Also, I am not controlling for any Nan values, the function will simply skip over them, so they need to be filled in by the user (There will be a run time warning for the user).</p>
+
 </div>
 </div>
 </div>
 <div class="cell border-box-sizing code_cell rendered">
 <div class="input">
-<div class="prompt input_prompt">In&nbsp;[161]:</div>
+<div class="prompt input_prompt">In&nbsp;[318]:</div>
 <div class="inner_cell">
     <div class="input_area">
-<div class=" highlight hl-ipython3"><pre><span></span><span class="k">def</span> <span class="nf">minimize_skew_with_transform</span><span class="p">(</span><span class="n">df</span><span class="p">,</span> <span class="n">np</span><span class="p">,</span> <span class="n">stats</span><span class="p">,</span> <span class="n">SKEW_CUT_OFF</span><span class="o">=</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">,</span><span class="mi">1</span><span class="p">]):</span>
+<div class=" highlight hl-ipython3"><pre><span></span><span class="k">def</span> <span class="nf">minimize_skew_with_transform</span><span class="p">(</span><span class="n">df</span><span class="p">,</span> <span class="n">np</span><span class="p">,</span> <span class="n">pd</span><span class="p">,</span> <span class="n">stats</span><span class="p">,</span> <span class="n">SKEW_CUT_OFF</span><span class="o">=</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">,</span><span class="mi">1</span><span class="p">]):</span>
     <span class="sd">&#39;&#39;&#39;</span>
 <span class="sd">    Finds columns with excess skew and minimizes them the best way possible by checking the best transform to use</span>
 <span class="sd">    Transforms include: log, sqrt, boxcox</span>
@@ -13103,7 +13104,9 @@ The function works by finding the optimal minimizer of skew for each column, and
 <span class="sd">    stats: stats from scipy needed for boxcox transform</span>
 <span class="sd">    np: numpy reference for func</span>
 <span class="sd">    </span>
-<span class="sd">    General rull of thumb for skew cut off value us [-1, 1] but can be changed</span>
+<span class="sd">    General rule of thumb for skew cut off value us [-1, 1] but can be changed</span>
+<span class="sd">    </span>
+<span class="sd">    returns dataframe with changed values, and dictionary with changes in skew for each col</span>
 <span class="sd">    &#39;&#39;&#39;</span>
     
     <span class="n">skews_df</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">(</span><span class="n">df</span><span class="o">.</span><span class="n">skew</span><span class="p">())</span>
@@ -13117,42 +13120,48 @@ The function works by finding the optimal minimizer of skew for each column, and
     
     <span class="nb">print</span><span class="p">(</span><span class="s1">&#39;High skew columns: </span><span class="si">{}</span><span class="se">\n</span><span class="s1">&#39;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="s1">&#39;, &#39;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">columns_with_high_skew</span><span class="p">)))</span>
     
+    <span class="n">diff</span> <span class="o">=</span> <span class="p">{}</span>
     <span class="c1">#find best transform for column and apply it to original df</span>
     <span class="k">for</span> <span class="n">col</span> <span class="ow">in</span> <span class="n">columns_with_high_skew</span><span class="p">:</span>
         
         <span class="n">col_skew</span> <span class="o">=</span> <span class="n">skews_df</span><span class="o">.</span><span class="n">T</span><span class="p">[</span><span class="n">col</span><span class="p">]</span><span class="o">.</span><span class="n">values</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
-        <span class="n">l_trans</span> <span class="o">=</span> <span class="mi">0</span>
-        <span class="n">sqrt_trans</span> <span class="o">=</span> <span class="mi">0</span>
-        <span class="n">box_cox_trans</span> <span class="o">=</span> <span class="mi">0</span>
+        <span class="c1">#Pre-set them higher for when we look for minimal val</span>
+        <span class="n">l_trans</span> <span class="o">=</span> <span class="n">col_skew</span> <span class="o">+</span> <span class="mi">1</span>
+        <span class="n">sqrt_trans</span> <span class="o">=</span> <span class="n">col_skew</span> <span class="o">+</span> <span class="mi">1</span>
+        <span class="n">box_cox_trans</span> <span class="o">=</span> <span class="n">col_skew</span> <span class="o">+</span> <span class="mi">1</span>
         <span class="n">NO_ZEROS</span> <span class="o">=</span> <span class="kc">False</span>
         <span class="k">if</span> <span class="mi">0</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">df</span><span class="p">[</span><span class="n">col</span><span class="p">]</span><span class="o">.</span><span class="n">values</span><span class="p">:</span>
-            <span class="n">l_trans</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">log</span><span class="p">(</span><span class="n">df</span><span class="p">[</span><span class="n">col</span><span class="p">])</span><span class="o">.</span><span class="n">skew</span><span class="p">()</span>
             <span class="n">NO_ZEROS</span> <span class="o">=</span> <span class="kc">True</span>
-        <span class="k">if</span> <span class="n">np</span><span class="o">.</span><span class="n">min</span><span class="p">(</span><span class="n">df</span><span class="p">[</span><span class="n">col</span><span class="p">])</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">:</span>
+        <span class="k">if</span> <span class="n">np</span><span class="o">.</span><span class="n">min</span><span class="p">(</span><span class="n">df</span><span class="p">[</span><span class="n">col</span><span class="p">])</span> <span class="o">&gt;=</span> <span class="mi">0</span><span class="p">:</span>
             <span class="n">sqrt_trans</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">sqrt</span><span class="p">(</span><span class="n">df</span><span class="p">[</span><span class="n">col</span><span class="p">])</span><span class="o">.</span><span class="n">skew</span><span class="p">()</span>
-            <span class="k">if</span> <span class="n">NO_ZEROS</span><span class="p">:</span>
+            <span class="k">if</span> <span class="n">NO_ZEROS</span><span class="p">:</span>                
+                <span class="n">l_trans</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">log</span><span class="p">(</span><span class="n">df</span><span class="p">[</span><span class="n">col</span><span class="p">])</span><span class="o">.</span><span class="n">skew</span><span class="p">()</span>
                 <span class="n">box_cox_trans</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">Series</span><span class="p">(</span><span class="n">stats</span><span class="o">.</span><span class="n">boxcox</span><span class="p">(</span><span class="n">df</span><span class="p">[</span><span class="n">col</span><span class="p">])[</span><span class="mi">0</span><span class="p">])</span><span class="o">.</span><span class="n">skew</span><span class="p">()</span>
        
         
         <span class="c1">#order important for next case statement</span>
         <span class="n">max_vals</span> <span class="o">=</span> <span class="p">[</span><span class="n">l_trans</span><span class="p">,</span> <span class="n">sqrt_trans</span><span class="p">,</span> <span class="n">box_cox_trans</span><span class="p">,</span> <span class="n">col_skew</span><span class="p">]</span>
         
-        <span class="n">ind</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">argmin</span><span class="p">(</span><span class="n">max_vals</span><span class="p">)</span>
+        <span class="n">ind</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">argmin</span><span class="p">(</span><span class="n">max_vals</span><span class="p">)</span>        
         <span class="k">if</span> <span class="n">ind</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
             <span class="nb">print</span><span class="p">(</span><span class="s1">&#39;Log transformed: </span><span class="si">{}</span><span class="s1">&#39;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">col</span><span class="p">))</span>
+            <span class="n">diff</span><span class="p">[</span><span class="n">col</span><span class="p">]</span> <span class="o">=</span> <span class="p">(</span><span class="n">col_skew</span> <span class="o">-</span> <span class="n">l_trans</span><span class="p">)</span>
             <span class="n">df</span><span class="p">[</span><span class="n">col</span><span class="p">]</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">log</span><span class="p">(</span><span class="n">df</span><span class="p">[</span><span class="n">col</span><span class="p">])</span>
         <span class="k">elif</span> <span class="n">ind</span> <span class="o">==</span> <span class="mi">1</span><span class="p">:</span>
             <span class="nb">print</span><span class="p">(</span><span class="s1">&#39;Sqrt transformed: </span><span class="si">{}</span><span class="s1">&#39;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">col</span><span class="p">))</span>
+            <span class="n">diff</span><span class="p">[</span><span class="n">col</span><span class="p">]</span> <span class="o">=</span> <span class="p">(</span><span class="n">col_skew</span> <span class="o">-</span> <span class="n">sqrt_trans</span><span class="p">)</span>
             <span class="n">df</span><span class="p">[</span><span class="n">col</span><span class="p">]</span> <span class="o">==</span> <span class="n">np</span><span class="o">.</span><span class="n">sqrt</span><span class="p">(</span><span class="n">df</span><span class="p">[</span><span class="n">col</span><span class="p">])</span>
         <span class="k">elif</span> <span class="n">ind</span> <span class="o">==</span> <span class="mi">2</span><span class="p">:</span>
             <span class="nb">print</span><span class="p">(</span><span class="s1">&#39;Boxcox transformed: </span><span class="si">{}</span><span class="s1">&#39;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">col</span><span class="p">))</span>
+            <span class="n">diff</span><span class="p">[</span><span class="n">col</span><span class="p">]</span> <span class="o">=</span> <span class="p">(</span><span class="n">col_skew</span> <span class="o">-</span> <span class="n">box_cox_trans</span><span class="p">)</span>
             <span class="n">df</span><span class="p">[</span><span class="n">col</span><span class="p">]</span> <span class="o">==</span> <span class="n">pd</span><span class="o">.</span><span class="n">Series</span><span class="p">(</span><span class="n">stats</span><span class="o">.</span><span class="n">boxcox</span><span class="p">(</span><span class="n">df</span><span class="p">[</span><span class="n">col</span><span class="p">])[</span><span class="mi">0</span><span class="p">])</span>
         <span class="k">else</span><span class="p">:</span>
+            <span class="n">diff</span><span class="p">[</span><span class="n">col</span><span class="p">]</span> <span class="o">=</span> <span class="mf">0.0</span>
             <span class="c1">#no change as the original value is least skew when unchanged</span>
-            <span class="k">pass</span>
             
-        
-    <span class="k">return</span> <span class="n">df</span>
+            
+    <span class="nb">print</span><span class="p">(</span><span class="s1">&#39;Skew minimization complete&#39;</span><span class="p">)</span>
+    <span class="k">return</span> <span class="p">(</span><span class="n">df</span><span class="p">,</span> <span class="n">diff</span><span class="p">)</span>
         
 </pre></div>
 
@@ -13171,7 +13180,7 @@ The function works by finding the optimal minimizer of skew for each column, and
 </div>
 <div class="cell border-box-sizing code_cell rendered">
 <div class="input">
-<div class="prompt input_prompt">In&nbsp;[162]:</div>
+<div class="prompt input_prompt">In&nbsp;[319]:</div>
 <div class="inner_cell">
     <div class="input_area">
 <div class=" highlight hl-ipython3"><pre><span></span><span class="kn">from</span> <span class="nn">scipy</span> <span class="kn">import</span> <span class="n">stats</span>
@@ -13187,7 +13196,7 @@ The function works by finding the optimal minimizer of skew for each column, and
 </div>
 <div class="cell border-box-sizing code_cell rendered">
 <div class="input">
-<div class="prompt input_prompt">In&nbsp;[154]:</div>
+<div class="prompt input_prompt">In&nbsp;[320]:</div>
 <div class="inner_cell">
     <div class="input_area">
 <div class=" highlight hl-ipython3"><pre><span></span><span class="n">train</span><span class="o">.</span><span class="n">head</span><span class="p">()</span>
@@ -13203,7 +13212,7 @@ The function works by finding the optimal minimizer of skew for each column, and
 
 <div class="output_area">
 
-    <div class="prompt output_prompt">Out[154]:</div>
+    <div class="prompt output_prompt">Out[320]:</div>
 
 
 
@@ -13384,7 +13393,7 @@ The function works by finding the optimal minimizer of skew for each column, and
 </div>
 <div class="cell border-box-sizing code_cell rendered">
 <div class="input">
-<div class="prompt input_prompt">In&nbsp;[155]:</div>
+<div class="prompt input_prompt">In&nbsp;[323]:</div>
 <div class="inner_cell">
     <div class="input_area">
 <div class=" highlight hl-ipython3"><pre><span></span><span class="n">train</span><span class="o">.</span><span class="n">isnull</span><span class="p">()</span><span class="o">.</span><span class="n">sum</span><span class="p">()</span><span class="o">.</span><span class="n">value_counts</span><span class="p">()</span>
@@ -13400,7 +13409,7 @@ The function works by finding the optimal minimizer of skew for each column, and
 
 <div class="output_area">
 
-    <div class="prompt output_prompt">Out[155]:</div>
+    <div class="prompt output_prompt">Out[323]:</div>
 
 
 
@@ -13445,7 +13454,7 @@ dtype: int64</pre>
 </div>
 <div class="cell border-box-sizing code_cell rendered">
 <div class="input">
-<div class="prompt input_prompt">In&nbsp;[156]:</div>
+<div class="prompt input_prompt">In&nbsp;[313]:</div>
 <div class="inner_cell">
     <div class="input_area">
 <div class=" highlight hl-ipython3"><pre><span></span><span class="n">train</span><span class="o">.</span><span class="n">skew</span><span class="p">()</span>
@@ -13461,7 +13470,7 @@ dtype: int64</pre>
 
 <div class="output_area">
 
-    <div class="prompt output_prompt">Out[156]:</div>
+    <div class="prompt output_prompt">Out[313]:</div>
 
 
 
@@ -13524,11 +13533,11 @@ dtype: float64</pre>
 </div>
 <div class="cell border-box-sizing code_cell rendered">
 <div class="input">
-<div class="prompt input_prompt">In&nbsp;[163]:</div>
+<div class="prompt input_prompt">In&nbsp;[322]:</div>
 <div class="inner_cell">
     <div class="input_area">
 <div class=" highlight hl-ipython3"><pre><span></span><span class="n">skew1</span> <span class="o">=</span> <span class="n">train</span><span class="o">.</span><span class="n">skew</span><span class="p">()</span>
-<span class="n">df</span> <span class="o">=</span> <span class="n">minimize_skew_with_transform</span><span class="p">(</span><span class="n">train</span><span class="o">.</span><span class="n">copy</span><span class="p">(),</span> <span class="n">np</span><span class="p">,</span> <span class="n">stats</span><span class="p">)</span>
+<span class="n">df</span><span class="p">,</span> <span class="n">diff_list</span> <span class="o">=</span> <span class="n">minimize_skew_with_transform</span><span class="p">(</span><span class="n">train</span><span class="o">.</span><span class="n">copy</span><span class="p">(),</span> <span class="n">np</span><span class="p">,</span> <span class="n">pd</span><span class="p">,</span> <span class="n">stats</span><span class="p">)</span>
 <span class="n">skew2</span> <span class="o">=</span> <span class="n">df</span><span class="o">.</span><span class="n">skew</span><span class="p">()</span>
 </pre></div>
 
@@ -13551,23 +13560,46 @@ dtype: float64</pre>
 Boxcox transformed: MSSubClass
 Log transformed: LotFrontage
 Log transformed: LotArea
-Log transformed: MasVnrArea
-Log transformed: BsmtFinSF1
-Log transformed: BsmtFinSF2
-Log transformed: TotalBsmtSF
+Sqrt transformed: MasVnrArea
+Sqrt transformed: BsmtFinSF1
+Sqrt transformed: BsmtFinSF2
+Sqrt transformed: TotalBsmtSF
 Boxcox transformed: 1stFlrSF
-Log transformed: LowQualFinSF
-Log transformed: GrLivArea
-Log transformed: BsmtHalfBath
-Log transformed: KitchenAbvGr
-Log transformed: WoodDeckSF
-Log transformed: OpenPorchSF
-Log transformed: EnclosedPorch
-Log transformed: 3SsnPorch
-Log transformed: ScreenPorch
-Log transformed: PoolArea
-Log transformed: MiscVal
+Sqrt transformed: LowQualFinSF
+</pre>
+</div>
+</div>
+
+<div class="output_area">
+
+    <div class="prompt"></div>
+
+
+<div class="output_subarea output_stream output_stderr output_text">
+<pre>C:\Users\corma\Anaconda3\lib\site-packages\scipy\stats\morestats.py:1044: RuntimeWarning: invalid value encountered in less_equal
+  if any(x &lt;= 0):
+</pre>
+</div>
+</div>
+
+<div class="output_area">
+
+    <div class="prompt"></div>
+
+
+<div class="output_subarea output_stream output_stdout output_text">
+<pre>Log transformed: GrLivArea
+Sqrt transformed: BsmtHalfBath
+Sqrt transformed: KitchenAbvGr
+Sqrt transformed: WoodDeckSF
+Sqrt transformed: OpenPorchSF
+Sqrt transformed: EnclosedPorch
+Sqrt transformed: 3SsnPorch
+Sqrt transformed: ScreenPorch
+Sqrt transformed: PoolArea
+Sqrt transformed: MiscVal
 Boxcox transformed: SalePrice
+Skew minimization complete
 </pre>
 </div>
 </div>
@@ -13578,7 +13610,7 @@ Boxcox transformed: SalePrice
 </div>
 <div class="cell border-box-sizing code_cell rendered">
 <div class="input">
-<div class="prompt input_prompt">In&nbsp;[164]:</div>
+<div class="prompt input_prompt">In&nbsp;[324]:</div>
 <div class="inner_cell">
     <div class="input_area">
 <div class=" highlight hl-ipython3"><pre><span></span><span class="nb">print</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">mean</span><span class="p">(</span><span class="n">skew1</span><span class="p">))</span>
@@ -13600,7 +13632,7 @@ Boxcox transformed: SalePrice
 
 <div class="output_subarea output_stream output_stdout output_text">
 <pre>2.9668029017648805
-0.3178331333636269
+2.5287513660787693
 </pre>
 </div>
 </div>
@@ -13613,9 +13645,50 @@ Boxcox transformed: SalePrice
 </div><div class="inner_cell">
 <div class="text_cell_render border-box-sizing rendered_html">
 <p>Above we can see the strong reduction in average skew, I have arbitrarily picked the range [1, -1] as the measure of exces skew (that is anything outside this range). As I have read this as a general rule of thumb. But this can be changed to have a more strict measure if you desired, by setting the SKEW_CUT_OFF=[new_min, new_max].</p>
+<p>Below we can take a better look at the categories that have been changed...</p>
 
 </div>
 </div>
+</div>
+<div class="cell border-box-sizing code_cell rendered">
+<div class="input">
+<div class="prompt input_prompt">In&nbsp;[325]:</div>
+<div class="inner_cell">
+    <div class="input_area">
+<div class=" highlight hl-ipython3"><pre><span></span><span class="n">df_</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">({</span><span class="s1">&#39;skew_diff&#39;</span><span class="p">:</span> <span class="nb">list</span><span class="p">(</span><span class="n">diff_list</span><span class="o">.</span><span class="n">values</span><span class="p">()),</span> <span class="s1">&#39;ids&#39;</span><span class="p">:</span> <span class="nb">list</span><span class="p">(</span><span class="n">diff_list</span><span class="o">.</span><span class="n">keys</span><span class="p">())})</span>
+<span class="kn">import</span> <span class="nn">matplotlib.pyplot</span> <span class="k">as</span> <span class="nn">plt</span>
+<span class="n">plt</span><span class="o">.</span><span class="n">bar</span><span class="p">(</span> <span class="n">df_</span><span class="p">[</span><span class="s1">&#39;ids&#39;</span><span class="p">],</span> <span class="n">df_</span><span class="p">[</span><span class="s1">&#39;skew_diff&#39;</span><span class="p">])</span>
+<span class="n">plt</span><span class="o">.</span><span class="n">ylabel</span><span class="p">(</span><span class="s1">&#39;Diff in skew&#39;</span><span class="p">)</span>
+<span class="n">plt</span><span class="o">.</span><span class="n">xticks</span><span class="p">(</span><span class="n">rotation</span><span class="o">=</span><span class="mi">90</span><span class="p">)</span>
+<span class="n">plt</span><span class="o">.</span><span class="n">rcParams</span><span class="p">[</span><span class="s2">&quot;figure.figsize&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="p">[</span><span class="mi">8</span><span class="p">,</span> <span class="mi">4</span><span class="p">]</span>
+</pre></div>
+
+    </div>
+</div>
+</div>
+
+<div class="output_wrapper">
+<div class="output">
+
+
+<div class="output_area">
+
+    <div class="prompt"></div>
+
+
+
+
+<div class="output_png output_subarea ">
+<img src="data:image/png;base64,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
+"
+>
+</div>
+
+</div>
+
+</div>
+</div>
+
 </div>
     </div>
   </div>
