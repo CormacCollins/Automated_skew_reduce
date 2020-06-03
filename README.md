@@ -24,7 +24,8 @@ print(np.mean(skew2))
 
 ```
 
-Note the runtime error as I didn't do anything about NaN values,
+Note the runtime error as I didn't do anything about NaN values
+
 Output:
 ```
 RuntimeWarning: invalid value encountered in less_equal
