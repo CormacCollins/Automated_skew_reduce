@@ -6,7 +6,7 @@ See walkthrough https://cormaccollins.github.io/Automated_skew_reduce/automated_
 
 Example import/usage:
 
-```
+```python
 from scipy import stats
 import numpy as np
 import pandas as pd
